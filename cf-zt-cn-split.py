@@ -90,7 +90,7 @@ def update_split_tunnels(cidrs, cidrs_private, domains):
     private_ips = [{"address":    cidr,    "description": "PRIVATE IP"} for cidr in cidrs_private]
     domain_entries = [{"host":    d,    "description": "CN Domain"} for d in domains[:max_domains]]
     ip_entries     = [{"address": cidr, "description": "CN IP"}     for cidr in cidrs[:max_ips]]
-    routes = domain_entries + ip_entries
+    routes = private_ips + domain_entries + ip_entries
 
     print(f"   域名规则：{len(domain_entries)} 条 | IP 规则：{len(ip_entries)} 条 | 合计：{len(routes)} 条")
 
