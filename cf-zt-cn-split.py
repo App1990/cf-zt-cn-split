@@ -47,12 +47,16 @@ def get_cn_cidrs():
     r.raise_for_status()
     cidrs = [line.strip() for line in r.text.splitlines() if line.strip() and not line.startswith('#')]
     print(f"   IP 数据源获取到 {len(cidrs)} 条 CIDR")
-
+    
+    return cidrs
+    
+def get_private_cidrs():
     r = requests.get(PRIVATE_IP_URL, timeout=30)
     r.raise_for_status()
     cidrs_private = [line.strip() for line in r.text.splitlines() if line.strip() and not line.startswith('#')]
+    print(f"   IP 数据源获取到 {len(cidrs)} 条 CIDR")
     
-    return cidrs_private + cidrs
+    return cidrs
 
 
 def get_cn_domains():
@@ -77,13 +81,14 @@ def get_cn_domains():
     return unique
 
 
-def update_split_tunnels(cidrs, domains):
+def update_split_tunnels(cidrs, cidrs_private, domains):
     # 动态分配配额：域名取 TARGET_DOMAIN_N 条，剩余给 IP
     max_domains = min(TARGET_DOMAIN_N, len(domains))
     max_ips     = min(MAX_RULES - max_domains, len(cidrs))
 
     # 域名规则在前（DNS 层优先命中），IP 规则在后（网络层兜底）
-    domain_entries = [{"host":    d,    "description": "CN Domain"} for d    in domains[:max_domains]]
+    private_ips = [{"address":    cidr,    "description": "PRIVATE IP"} for cidr in cidrs_private]
+    domain_entries = [{"host":    d,    "description": "CN Domain"} for d in domains[:max_domains]]
     ip_entries     = [{"address": cidr, "description": "CN IP"}     for cidr in cidrs[:max_ips]]
     routes = domain_entries + ip_entries
 
@@ -109,5 +114,6 @@ def update_split_tunnels(cidrs, domains):
 if __name__ == "__main__":
     print("🔄 拉取最新 CN geo 数据...")
     cidrs   = get_cn_cidrs()
+    cidrs_private   = get_private_cidrs()
     domains = get_cn_domains()
-    update_split_tunnels(cidrs, domains)
+    update_split_tunnels(cidrs, cidrs_private, domains)
