@@ -25,8 +25,11 @@ TARGET_DOMAIN_N = 100  # 期望域名条数，剩余配额给 IP
 # 合法域名正则：只保留标准域名格式，过滤脏数据
 VALID_DOMAIN_RE = re.compile(r'^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$')
 
-# 域名：Loyalsoldier 精选直连域名
+# 域名：国内常用域名
 DOMAIN_URL = "https://raw.githubusercontent.com/App1990/cf-zt-cn-split/master/domain-cn.txt"
+
+# IP：私有ip
+PRIVATE_IP_URL = "https://raw.githubusercontent.com/App1990/cf-zt-cn-split/master/private-ip.txt"
 
 # IP：GeoIP2-CN
 IP_URL = "https://raw.githubusercontent.com/soffchen/GeoIP2-CN/release/CN-ip-cidr.txt"
@@ -44,7 +47,12 @@ def get_cn_cidrs():
     r.raise_for_status()
     cidrs = [line.strip() for line in r.text.splitlines() if line.strip() and not line.startswith('#')]
     print(f"   IP 数据源获取到 {len(cidrs)} 条 CIDR")
-    return cidrs
+
+    r = requests.get(PRIVATE_IP_URL, timeout=30)
+    r.raise_for_status()
+    cidrs_private = [line.strip() for line in r.text.splitlines() if line.strip() and not line.startswith('#')]
+    
+    return cidrs_private + cidrs
 
 
 def get_cn_domains():
