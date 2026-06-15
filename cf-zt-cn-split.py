@@ -54,9 +54,9 @@ def get_private_cidrs():
     r = requests.get(PRIVATE_IP_URL, timeout=30)
     r.raise_for_status()
     cidrs_private = [line.strip() for line in r.text.splitlines() if line.strip() and not line.startswith('#')]
-    print(f"   IP 数据源获取到 {len(cidrs)} 条 CIDR")
+    print(f"   IP 数据源获取到 {len(cidrs_private)} 条 CIDR")
     
-    return cidrs
+    return cidrs_private
 
 
 def get_cn_domains():
