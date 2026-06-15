@@ -1,0 +1,17 @@
+.cn
+.apple.com
+.microsoft.com
+.baidu.com
+.qq.com
+.aliyun.com
+.zhihu.com
+.tencent.com
+.jd.com
+.taobao.com
+.wechat.com
+.meituan.com
+.deepseek.com
+.amap.com
+.bilibili.com
+.qidian.com
+.longfor.com
