@@ -4,7 +4,7 @@ import re
 
 CF_API_TOKEN = os.getenv("CF_API_TOKEN")
 ACCOUNT_ID   = os.getenv("CF_ACCOUNT_ID")
-PROFILE_ID   = os.getenv("CF_PROFILE_ID", "")
+PROFILE_ID_RAW = os.getenv("PROFILE_ID", '[""]')
 MODE         = os.getenv("MODE", "exclude")  # exclude=CN直连 | include=只有CN走WARP
 ALLOWED_MODES = {"exclude", "include"}
 
@@ -13,6 +13,23 @@ if not all([CF_API_TOKEN, ACCOUNT_ID]):
 
 if MODE not in ALLOWED_MODES:
     raise ValueError(f"非法 MODE: {MODE}，只允许 {'/'.join(sorted(ALLOWED_MODES))}")
+
+# 解析 PROFILE_ID JSON 数组
+try:
+    PROFILE_IDS = json.loads(PROFILE_ID_RAW)
+except json.JSONDecodeError:
+    raise ValueError(
+        'PROFILE_ID 格式错误！请使用 JSON 数组，例如 ["", "profile-id"]'
+    )
+
+if not isinstance(PROFILE_IDS, list):
+    raise ValueError("PROFILE_ID 必须是 JSON 数组！")
+
+if not PROFILE_IDS:
+    raise ValueError("PROFILE_ID 数组不能为空！")
+
+# 清理空格并去重，保留原有顺序
+PROFILE_IDS = list(dict.fromkeys(pid.strip() for pid in PROFILE_IDS))
 
 HEADERS = {
     "Authorization": f"Bearer {CF_API_TOKEN}",
@@ -80,8 +97,7 @@ def get_cn_domains():
     print(f"   域名数据源获取到 {len(unique)} 条域名（已过滤非法格式）")
     return unique
 
-
-def update_split_tunnels(cidrs, cidrs_private, domains):
+def build_routes(cidrs, cidrs_private, domains):
     # 动态分配配额：域名取 TARGET_DOMAIN_N 条，剩余给 IP
     max_domains = min(TARGET_DOMAIN_N, len(domains))
     max_ips     = min(MAX_RULES - max_domains, len(cidrs))
@@ -93,19 +109,22 @@ def update_split_tunnels(cidrs, cidrs_private, domains):
     routes = private_ips + domain_entries + ip_entries
 
     print(f"   域名规则：{len(domain_entries)} 条 | IP 规则：{len(ip_entries)} 条 | 合计：{len(routes)} 条")
-
+    
     if len(routes) > MAX_RULES:
         print(f"⚠️  规则总数超出限制，已截断至 {MAX_RULES} 条")
         routes = routes[:MAX_RULES]
+        
+    return routes
 
-    if PROFILE_ID:
-        url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/devices/policy/{PROFILE_ID}/{MODE}"
+def update_split_tunnels(routes, profile_id):
+    if profile_id:
+        url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/devices/policy/{profile_id}/{MODE}"
     else:
         url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/devices/policy/{MODE}"
 
     resp = requests.put(url, json=routes, headers=HEADERS)
     if resp.status_code in (200, 204):
-        print(f"✅ 同步成功！{len(routes)} 条路由 | Mode: {MODE}")
+        print(f"✅ 同步成功！{len(routes)} 条路由 | Mode: {MODE} | Profile: {profile_id}")
     else:
         print(f"❌ 失败 {resp.status_code}: Cloudflare API 请求未成功")
         resp.raise_for_status()
@@ -116,4 +135,7 @@ if __name__ == "__main__":
     cidrs   = get_cn_cidrs()
     cidrs_private   = get_private_cidrs()
     domains = get_cn_domains()
-    update_split_tunnels(cidrs, cidrs_private, domains)
+    routes = build_routes(cidrs, cidrs_private, domains)
+    
+    for index, profile_id in enumerate(PROFILE_IDS, 1):
+        update_split_tunnels(routes, profile_id)
